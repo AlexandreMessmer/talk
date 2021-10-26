@@ -300,7 +300,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore]
     async fn single_shard_keycard_delayed_fill() {
         const ADDRESS: &str = "127.0.0.1:1235";
         const CLIENTS: usize = 3;
@@ -355,7 +354,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore]
     async fn multiple_shard_keycard_delayed_fill() {
         const ADDRESS: &str = "127.0.0.1:1237";
         const CLIENTS: usize = 9;

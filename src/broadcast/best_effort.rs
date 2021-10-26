@@ -165,7 +165,6 @@ mod tests {
 
     #[tokio::test]
     #[should_panic]
-    #[ignore]
     async fn constant_all_broadcast_threshold_insufficient() {
         const FAULTY: usize = 1;
         const PEERS: usize = 3 * FAULTY + 1;
