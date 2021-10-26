@@ -1,0 +1,38 @@
+on: [push, pull_request]
+
+name: linters
+
+jobs:
+  cargo-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - uses: Swatinem/rust-cache@v1
+
+      - uses: actions-rs/cargo@v1
+        name: cargo check
+        with:
+          command: check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - uses: Swatinem/rust-cache@v1
+
+      - uses: actions-rs/cargo@v1
+        name: cargo clippy
+        with:
+          command: clippy
