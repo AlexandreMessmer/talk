@@ -1,15 +1,15 @@
+use doomstack::{here, Doom, ResultExt, Top};
+use serde::Serialize;
+
 use crate::{
     crypto::primitives::channel::Sender as ChannelSender,
     net::{SecureConnectionError, SenderSettings, UnitSender},
     time,
 };
 
-use doomstack::{here, Doom, ResultExt, Top};
-
-use serde::Serialize;
-
 pub struct SecureSender {
     unit_sender: UnitSender,
+    send_buffer: Vec<u8>,
     channel_sender: ChannelSender,
     settings: SenderSettings,
 }
@@ -22,6 +22,7 @@ impl SecureSender {
     ) -> Self {
         Self {
             unit_sender,
+            send_buffer: Vec::new(),
             channel_sender,
             settings,
         }
@@ -38,13 +39,14 @@ impl SecureSender {
     where
         M: Serialize,
     {
+        self.send_buffer.clear();
         self.channel_sender
-            .encrypt_into(message, self.unit_sender.as_vec())
+            .encrypt_into(message, &mut self.send_buffer)
             .pot(SecureConnectionError::EncryptFailed, here!())?;
 
         time::optional_timeout(
             self.settings.send_timeout,
-            self.unit_sender.flush(),
+            self.unit_sender.send(&self.send_buffer),
         )
         .await
         .pot(SecureConnectionError::SendTimeout, here!())?
@@ -60,13 +62,14 @@ impl SecureSender {
     where
         M: Serialize,
     {
+        self.send_buffer.clear();
         self.channel_sender
-            .authenticate_into(message, self.unit_sender.as_vec())
+            .authenticate_into(message, &mut self.send_buffer)
             .pot(SecureConnectionError::MacComputeFailed, here!())?;
 
         time::optional_timeout(
             self.settings.send_timeout,
-            self.unit_sender.flush(),
+            self.unit_sender.send(&self.send_buffer),
         )
         .await
         .pot(SecureConnectionError::SendTimeout, here!())?

@@ -1,12 +1,11 @@
+use doomstack::{here, Doom, ResultExt, Top};
+use serde::Deserialize;
+
 use crate::{
     crypto::primitives::channel::Receiver as ChannelReceiver,
     net::{ReceiverSettings, SecureConnectionError, UnitReceiver},
     time,
 };
-
-use doomstack::{here, Doom, ResultExt, Top};
-
-use serde::Deserialize;
 
 pub struct SecureReceiver {
     unit_receiver: UnitReceiver,
@@ -35,7 +34,7 @@ impl SecureReceiver {
     where
         M: for<'de> Deserialize<'de>,
     {
-        time::optional_timeout(
+        let mut buffer = time::optional_timeout(
             self.settings.receive_timeout,
             self.unit_receiver.receive(),
         )
@@ -46,7 +45,7 @@ impl SecureReceiver {
         .spot(here!())?;
 
         self.channel_receiver
-            .decrypt_in_place(self.unit_receiver.as_vec())
+            .decrypt_in_place(&mut buffer)
             .pot(SecureConnectionError::DecryptFailed, here!())
     }
 
@@ -56,7 +55,7 @@ impl SecureReceiver {
     where
         M: for<'de> Deserialize<'de>,
     {
-        time::optional_timeout(
+        let mut buffer = time::optional_timeout(
             self.settings.receive_timeout,
             self.unit_receiver.receive(),
         )
@@ -67,7 +66,7 @@ impl SecureReceiver {
         .spot(here!())?;
 
         self.channel_receiver
-            .authenticate(self.unit_receiver.as_vec())
+            .authenticate(&mut buffer)
             .pot(SecureConnectionError::MacVerifyFailed, here!())
     }
 }

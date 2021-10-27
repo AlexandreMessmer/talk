@@ -1,3 +1,7 @@
+use doomstack::{here, Doom, ResultExt, Top};
+use serde::Serialize;
+use tokio::io::WriteHalf;
+
 use crate::{
     crypto::primitives::channel::Sender as ChannelSender,
     net::{
@@ -6,14 +10,9 @@ use crate::{
     time,
 };
 
-use doomstack::{here, Doom, ResultExt, Top};
-
-use serde::Serialize;
-
-use tokio::io::WriteHalf;
-
 pub struct PlainSender {
     unit_sender: UnitSender,
+    send_buffer: Vec<u8>,
     settings: SenderSettings,
 }
 
@@ -24,6 +23,7 @@ impl PlainSender {
     ) -> Self {
         PlainSender {
             unit_sender: UnitSender::new(write_half),
+            send_buffer: Vec::new(),
             settings,
         }
     }
@@ -43,14 +43,15 @@ impl PlainSender {
     where
         M: Serialize,
     {
-        bincode::serialize_into(self.unit_sender.as_vec(), &message)
+        self.send_buffer.clear();
+        bincode::serialize_into(&mut self.send_buffer, &message)
             .map_err(PlainConnectionError::serialize_failed)
             .map_err(Doom::into_top)
             .spot(here!())?;
 
         time::optional_timeout(
             self.settings.send_timeout,
-            self.unit_sender.flush(),
+            self.unit_sender.send(&self.send_buffer),
         )
         .await
         .pot(PlainConnectionError::SendTimeout, here!())?

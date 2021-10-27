@@ -1,9 +1,11 @@
-use crate::net::Socket;
-
 use std::mem;
 
-use tokio::io;
-use tokio::io::{AsyncReadExt, ReadHalf};
+use tokio::{
+    io,
+    io::{AsyncReadExt, ReadHalf},
+};
+
+use crate::net::Socket;
 
 pub(in crate::net) struct UnitReceiver {
     read_half: ReadHalf<Box<dyn Socket>>,
@@ -22,25 +24,14 @@ impl UnitReceiver {
         &self.read_half
     }
 
-    pub fn as_slice(&self) -> &[u8] {
-        self.buffer.as_slice()
-    }
+    pub async fn receive(&mut self) -> io::Result<&mut Vec<u8>> {
+        let mut size_buffer = [0; mem::size_of::<u32>()];
+        self.read_half.read_exact(&mut size_buffer[..]).await?;
+        let size = u32::from_le_bytes(size_buffer) as usize;
 
-    pub fn as_vec(&mut self) -> &mut Vec<u8> {
-        &mut self.buffer
-    }
-
-    pub async fn receive(&mut self) -> io::Result<()> {
-        let size = self.receive_size().await?;
-        self.buffer.resize(size, 0);
+        self.buffer.resize(size, 0u8);
         self.read_half.read_exact(&mut self.buffer[..]).await?;
 
-        Ok(())
-    }
-
-    async fn receive_size(&mut self) -> io::Result<usize> {
-        let mut size = [0; mem::size_of::<u32>()];
-        self.read_half.read_exact(&mut size[..]).await?;
-        Ok(u32::from_le_bytes(size) as usize)
+        Ok(&mut self.buffer)
     }
 }
