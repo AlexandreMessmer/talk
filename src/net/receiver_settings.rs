@@ -1,6 +1,6 @@
-use crate::net::ConnectionSettings;
-
 use std::time::Duration;
+
+use crate::net::ConnectionSettings;
 
 #[derive(Debug, Clone)]
 pub struct ReceiverSettings {
@@ -10,7 +10,9 @@ pub struct ReceiverSettings {
 impl Default for ReceiverSettings {
     fn default() -> Self {
         ReceiverSettings {
-            receive_timeout: ConnectionSettings::default().receive_timeout,
+            receive_timeout: ConnectionSettings::default()
+                .receive_timeout()
+                .to_owned(),
         }
     }
 }
