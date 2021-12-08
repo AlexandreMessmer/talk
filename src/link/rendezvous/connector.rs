@@ -55,9 +55,12 @@ impl Connector {
         }
     }
 
-    async fn attempt(&self, identity: Identity) -> Result<SecureConnection, Top<ConnectorError>> {
-        let address = self
-            .get_address(identity)
+    async fn attempt(
+        &self,
+        identity: Identity,
+        address: Option<SocketAddr>,
+    ) -> Result<SecureConnection, Top<ConnectorError>> {
+        let address = address
             .ok_or(ConnectorError::AddressUnknown.into_top())
             .spot(here!())?;
 
@@ -87,8 +90,7 @@ impl Connector {
         }
     }
 
-    async fn refresh(&self, identity: Identity) -> bool {
-        let stale = self.get_address(identity);
+    async fn refresh(&self, identity: Identity, stale: Option<SocketAddr>) -> bool {
         let fresh = self
             .client
             .get_address(identity)
@@ -105,18 +107,11 @@ impl Connector {
     }
 
     fn get_address(&self, identity: Identity) -> Option<SocketAddr> {
-        self.database
-            .lock()
-            .cache
-            .get(&identity)
-            .map(Clone::clone)
+        self.database.lock().cache.get(&identity).map(Clone::clone)
     }
 
     fn cache_address(&self, identity: Identity, address: SocketAddr) {
-        self.database
-            .lock()
-            .cache
-            .insert(identity, address);
+        self.database.lock().cache.insert(identity, address);
     }
 }
 
@@ -124,9 +119,11 @@ impl Connector {
 impl NetConnector for Connector {
     async fn connect(&self, identity: Identity) -> Result<SecureConnection, Stack> {
         loop {
-            let result = self.attempt(identity).await.map_err(Into::into);
+            let address = self.get_address(identity);
 
-            if result.is_ok() || !self.refresh(identity).await {
+            let result = self.attempt(identity, address).await.map_err(Into::into);
+
+            if result.is_ok() || !self.refresh(identity, address).await {
                 return result;
             }
         }
