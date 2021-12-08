@@ -7,6 +7,8 @@ use crate::{
 
 use doomstack::{here, Doom, ResultExt, Top};
 
+use log::{info};
+
 use parking_lot::Mutex;
 
 use std::{
@@ -150,6 +152,8 @@ impl Server {
                     address.set_port(port);
                     database.addresses.insert(identity, address);
 
+                    info!("Registered Ip Address. Identity: {:?}, IP: {:?}", identity, address);
+
                     Response::AcknowledgePort
                 }
 
@@ -181,8 +185,10 @@ impl Server {
 
                 Request::GetAddress(identity) => {
                     if let Some(address) = database.addresses.get(&identity) {
+                        info!("GetAddress request. Identity: {:?}; Address: {:?}", identity, address);
                         Response::Address(address.clone())
                     } else {
+                        info!("GetAddress request. Identity: {:?}; Address: UNKNOWN", identity);
                         Response::AddressUnknown
                     }
                 }
