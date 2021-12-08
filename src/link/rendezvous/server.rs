@@ -114,6 +114,8 @@ impl Server {
         let response = {
             let mut database = database.lock();
 
+            info!("Received request");
+
             match request {
                 Request::PublishCard(card, shard)
                     if database.cards.contains_key(&card.identity()) =>
