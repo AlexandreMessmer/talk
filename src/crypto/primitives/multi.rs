@@ -1,7 +1,8 @@
 use blst::min_sig::{
-    AggregateSignature as BlstAggregateSignature, PublicKey as BlstPublicKey,
-    SecretKey as BlstSecretKey, Signature as BlstSignature,
+    AggregatePublicKey as BlstAggregatePublicKey, AggregateSignature as BlstAggregateSignature,
+    PublicKey as BlstPublicKey, SecretKey as BlstSecretKey, Signature as BlstSignature,
 };
+use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 
 use crate::crypto::primitives::adapters::{BlstError, BlstErrorAdapter};
 
@@ -239,8 +240,40 @@ impl Signature {
             .map_err(Doom::into_top)
             .spot(here!())?;
 
+        let aggregate_public_key = if signers.len() > 64 * 10 {
+            let aggregate_public_keys = signers
+                .par_chunks(signers.len() / 64)
+                .map(|keys| {
+                    BlstAggregatePublicKey::aggregate(&keys, false)
+                        .map_err(BlstError::from)
+                        .map_err(MultiError::verify_failed)
+                        .map_err(Doom::into_top)
+                        .spot(here!())
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+
+            aggregate_public_keys
+                .into_iter()
+                .reduce(|mut full_key, next_key| {
+                    full_key.add_aggregate(&next_key);
+                    full_key
+                })
+                .unwrap()
+        } else {
+            BlstAggregatePublicKey::aggregate(&signers, false)
+                .map_err(BlstError::from)
+                .map_err(MultiError::verify_failed)
+                .map_err(Doom::into_top)
+                .spot(here!())?
+        };
+
         self.0
-            .fast_aggregate_verify(true, &message[..], BLST_DST, &signers[..])
+            .fast_aggregate_verify_pre_aggregated(
+                true,
+                &message[..],
+                BLST_DST,
+                &BlstPublicKey::from_aggregate(&aggregate_public_key),
+            )
             .into_result()
             .map_err(MultiError::verify_failed)
             .map_err(Doom::into_top)
